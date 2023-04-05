@@ -24,6 +24,9 @@ clean:
 .depend: $(SOURCES)
 	$(CC) -MM $^ > $@
 
+test: tiny_md
+	python3 test/test_main.py
+
 -include .depend
 
-.PHONY: clean all
+.PHONY: clean all test
