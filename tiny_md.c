@@ -6,10 +6,27 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
-
-int main()
+int main(int argc, char* argv[])
 {
+    N = DEFAULT_N;
+
+    if (argc > 2) {
+        fprintf(stderr, "Usage: %s <número de particulas>\n", argv[0]);
+        return 1;
+    }
+
+    if (argc == 2) {
+        N = atoi(argv[1]);
+
+        int m = cbrt(N / 4.0);
+        if (N != 4 * m * m * m) {
+            fprintf(stderr, "Error: N debe ser un 4m^3 para el cristal inicial\n");
+            return 1;
+        }
+    }
+
     FILE *file_xyz, *file_thermo;
     file_xyz = fopen("trajectory.xyz", "w");
     file_thermo = fopen("thermo.log", "w");
