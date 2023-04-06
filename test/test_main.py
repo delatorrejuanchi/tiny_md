@@ -23,11 +23,12 @@ DEFAULT_MEAN_EPSILON_VALUES = [0, 0, 12, 0.3]
 DEFAULT_STD_EPSILON_VALUES = [0, 0, 11, 0.2]
 DEFAULT_NUM_RUNS = 20
 DEFAULT_SUCCESS_THRESHOLD = 0.9
+DEFAULT_N = 256
 
 
-def run_tiny_md() -> str:
+def run_tiny_md(N: int) -> str:
     result = subprocess.run(
-        ["./tiny_md"],
+        ["./tiny_md", str(N)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -60,16 +61,16 @@ def test_output(expected_output: pd.DataFrame, actual_output: pd.DataFrame, mean
         assert std_diff[col] <= std_epsilon, f"Standard deviation of column {COLUMN_NAMES[col]} is too large: {std_diff[col]}"
 
 
-def main(num_runs: int, success_threshold: float, mean_epsilon_values: List[float], std_epsilon_values: List[float]) -> None:
+def main(N: int, num_runs: int, success_threshold: float, mean_epsilon_values: List[float], std_epsilon_values: List[float]) -> None:
     print(f"Running test for tiny_md {num_runs} times...")
 
-    with open(os.path.join("test", "expected_output.txt"), "r") as f:
+    with open(os.path.join("test", f"expected_output_{N}.txt"), "r") as f:
         expected_output = parse_output(f.read())
 
     successful_runs = 0
     for i in range(num_runs):
         print(f"Run {i + 1}/{num_runs}...", end=" ")
-        output = parse_output(run_tiny_md())
+        output = parse_output(run_tiny_md(N))
 
         try:
             test_output(
@@ -99,13 +100,13 @@ def main(num_runs: int, success_threshold: float, mean_epsilon_values: List[floa
     print("OK")
 
 
-def compute_statistics(num_runs: int) -> None:
+def compute_statistics(N: int, num_runs: int) -> None:
     print(f"Computing statistics for tiny_md after {num_runs} runs...")
 
     outputs = []
     for i in range(num_runs):
         print(f"Run {i + 1}/{num_runs}...", end=" ")
-        outputs.append(parse_output(run_tiny_md()))
+        outputs.append(parse_output(run_tiny_md(N)))
         print("OK")
 
     print("average output:")
@@ -136,18 +137,25 @@ if __name__ == "__main__":
         help="Mode of operation. Can be 'test' or 'compute-statistics'. Default is 'test'.",
     )
     parser.add_argument(
+        "--n",
+        type=int,
+        metavar="N",
+        default=DEFAULT_N,
+        help=f"Number of particles. Default is {DEFAULT_N}.",
+    )
+    parser.add_argument(
         "--num-runs",
         type=int,
         metavar="NUM_RUNS",
         default=DEFAULT_NUM_RUNS,
-        help="Number of times to run tiny_md. Default is 20.",
+        help=f"Number of times to run tiny_md. Default is {DEFAULT_NUM_RUNS}.",
     )
     parser.add_argument(
         "--success-threshold",
         type=float,
         metavar="SUCCESS_THRESHOLD",
         default=DEFAULT_SUCCESS_THRESHOLD,
-        help="Success rate threshold for the test mode. Default is 0.9.",
+        help=f"Success rate threshold for the test mode. Default is {DEFAULT_SUCCESS_THRESHOLD}.",
     )
     parser.add_argument(
         "--mean-epsilon-values",
@@ -155,7 +163,7 @@ if __name__ == "__main__":
         type=float,
         metavar=tuple(COLUMN_NAMES),
         default=DEFAULT_MEAN_EPSILON_VALUES,
-        help="Mean epsilon values for the test mode. Default is %s." % DEFAULT_MEAN_EPSILON_VALUES,
+        help=f"Mean epsilon values for the test mode. Default is {DEFAULT_MEAN_EPSILON_VALUES}.",
     )
     parser.add_argument(
         "--std-epsilon-values",
@@ -163,13 +171,13 @@ if __name__ == "__main__":
         type=float,
         metavar=tuple(COLUMN_NAMES),
         default=DEFAULT_STD_EPSILON_VALUES,
-        help="Standard deviation epsilon values for the test mode. Default is %s." % DEFAULT_STD_EPSILON_VALUES,
+        help=f"Standard deviation epsilon values for the test mode. Default is {DEFAULT_STD_EPSILON_VALUES}.",
     )
 
     args = parser.parse_args()
 
     if args.mode == "compute-statistics":
-        compute_statistics(args.num_runs)
+        compute_statistics(args.n, args.num_runs)
     else:
-        main(args.num_runs, args.success_threshold,
+        main(args.n, args.num_runs, args.success_threshold,
              args.mean_epsilon_values, args.std_epsilon_values)
