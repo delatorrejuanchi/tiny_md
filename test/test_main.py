@@ -19,8 +19,8 @@ COLUMN_NAMES = [
 # They were computed by running the test script with the --mode=compute-statistics,
 # and approximating that the error across outputs is normally distributed. The values
 # were set to ~2 standard deviations from the mean, which should cover ~95% of the cases.
-DEFAULT_MEAN_EPSILON_VALUES = [0, 0, 17, 0.3]
-DEFAULT_STD_EPSILON_VALUES = [0, 0, 25, 0.2]
+DEFAULT_MEAN_EPSILON_VALUES = [0, 0, 12, 0.3]
+DEFAULT_STD_EPSILON_VALUES = [0, 0, 11, 0.2]
 DEFAULT_NUM_RUNS = 20
 DEFAULT_SUCCESS_THRESHOLD = 0.9
 
@@ -92,7 +92,7 @@ def main(num_runs: int, success_threshold: float, mean_epsilon_values: List[floa
     print(f"Success rate: {success_rate * 100:.1f}%")
     print(f"Success threshold: {success_threshold * 100:.1f}%")
 
-    if success_rate >= success_threshold:
+    if success_rate < success_threshold:
         print("FAIL")
         sys.exit(1)
 
@@ -113,17 +113,14 @@ def compute_statistics(num_runs: int) -> None:
     for row in avg:
         print(" ".join([f"{x:.6f}" for x in row]))
 
-    pairwise_diffs = np.array(
-        [np.abs(outputs[i] - outputs[j])
-         for i in range(num_runs) for j in range(i + 1, num_runs)]
-    )
+    diffs = [np.abs(output - avg) for output in outputs]
 
-    mean_diffs = np.mean(pairwise_diffs, axis=0)
+    mean_diffs = np.mean(diffs, axis=0)
     print("mean of differences:")
     print("mean: ", np.mean(mean_diffs, axis=0).astype(float))
     print("std: ", np.std(mean_diffs, axis=0).astype(float))
 
-    std_diffs = np.std(pairwise_diffs, axis=0)
+    std_diffs = np.std(diffs, axis=0)
     print("std of differences:")
     print("mean: ", np.mean(std_diffs, axis=0).astype(float))
     print("std: ", np.std(std_diffs, axis=0).astype(float))
