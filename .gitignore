@@ -4,3 +4,4 @@ viz
 .depend
 *.log
 *.xyz
+.vscode
