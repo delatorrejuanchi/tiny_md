@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS	= -O0
+CFLAGS	= -O3 -march=native -mtune=native -fopenmp
 WFLAGS	= -std=c11 -Wall -Wextra -g
 LDFLAGS	= -lm
 
