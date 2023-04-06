@@ -6,7 +6,7 @@
 
 #define ECUT (4.0 * (pow(RCUT, -12) - pow(RCUT, -6)))
 
-int N;
+int N = DEFAULT_N;
 
 void init_pos(double* rxyz, const double rho)
 {

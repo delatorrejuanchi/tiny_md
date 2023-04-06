@@ -10,8 +10,6 @@
 
 int main(int argc, char* argv[])
 {
-    N = DEFAULT_N;
-
     if (argc > 2) {
         fprintf(stderr, "Usage: %s <número de particulas>\n", argv[0]);
         return 1;
