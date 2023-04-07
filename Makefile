@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS	= -O3 -march=native -mtune=native --ffast-math
+CFLAGS	= -O3 -march=native -mtune=native -ffast-math
 WFLAGS	= -std=c11 -Wall -Wextra -g
 LDFLAGS	= -lm
 
@@ -24,12 +24,17 @@ clean:
 .depend: $(SOURCES)
 	$(CC) -MM $^ > $@
 
-test: tiny_md
+test:
+	make clean
+	make
 	python3 test/test_main.py
 
-benchmark: tiny_md
-	python3 test/benchmark.py $(name) --n-values 256 500 --num-runs 10
+benchmark:
+	make clean
+	make
+	python3 benchmark/main.py $(name) --n-values 108 256 500 --num-runs 5
+	python3 benchmark/main.py $(name) --mode plot
 
 -include .depend
 
-.PHONY: clean all test
+.PHONY: clean all test benchmark
