@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS	= -O3 -march=native -mtune=native -fopenmp
+CFLAGS	= -O3 -march=native -mtune=native --ffast-math
 WFLAGS	= -std=c11 -Wall -Wextra -g
 LDFLAGS	= -lm
 
@@ -26,6 +26,9 @@ clean:
 
 test: tiny_md
 	python3 test/test_main.py
+
+benchmark: tiny_md
+	python3 test/benchmark.py $(name) --n-values 256 500 --num-runs 10
 
 -include .depend
 
