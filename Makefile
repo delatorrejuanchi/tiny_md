@@ -25,16 +25,24 @@ clean:
 	$(CC) -MM $^ > $@
 
 test:
-	make clean
-	make
 	python3 test/test_main.py
 
-benchmark:
+rebuild-and-test:
 	make clean
 	make
+	make test
+
+benchmark:
 	python3 benchmark/main.py $(name) --n-values 256 500 864 1372 --num-runs 3
+
+plot:
 	python3 benchmark/main.py $(name) --mode plot
+
+rebuild-and-benchmark:
+	make clean
+	make
+	make benchmark
 
 -include .depend
 
-.PHONY: clean all test benchmark
+.PHONY: clean all test benchmark rebuild-and-test rebuild-and-benchmark plot
