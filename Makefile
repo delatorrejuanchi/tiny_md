@@ -1,5 +1,5 @@
 CC      = gcc
-CFLAGS	= -O3 -march=native -mtune=native -ffast-math
+CFLAGS	= -O0
 WFLAGS	= -std=c11 -Wall -Wextra -g
 LDFLAGS	= -lm
 
@@ -32,7 +32,7 @@ test:
 benchmark:
 	make clean
 	make
-	python3 benchmark/main.py $(name) --n-values 108 256 500 --num-runs 5
+	python3 benchmark/main.py $(name) --n-values 256 500 864 1372 --num-runs 3
 	python3 benchmark/main.py $(name) --mode plot
 
 -include .depend

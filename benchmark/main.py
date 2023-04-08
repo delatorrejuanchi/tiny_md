@@ -13,7 +13,6 @@ DEFAULT_NUM_RUNS = 20
 
 
 def run_tiny_md(N: int) -> str:
-    """Run the tiny_md simulation with the given N value and return the stdout."""
     result = subprocess.run(
         ["./tiny_md", str(N)],
         stdout=subprocess.PIPE,
@@ -38,7 +37,7 @@ def benchmark(name: str, n_values: List[int], num_runs: int):
         run_times = []
         for i in range(num_runs):
             print(f"N = {n}: {i}/{num_runs}...", end=" ", flush=True)
-            run_times.append(parse_time(run_tiny_md(n)))
+            run_times.append(get_performance_from_output(run_tiny_md(n)))
             print("OK")
 
         avg_time = np.mean(run_times)
@@ -50,14 +49,24 @@ def benchmark(name: str, n_values: List[int], num_runs: int):
     save_to_file(name, n_values, avg_times, std_devs)
 
 
-def parse_time(output: str) -> float:
-    time_pattern = r"# Tiempo total de simulación = (\d+\.\d+) segundos"
+def get_performance_from_output(output: str) -> float:
+    num_particles_pattern = r"# Número de partículas:\s+(\d+)"
+    total_time_pattern = r"# Tiempo total de simulación = (\d+\.\d+) segundos"
+    simulated_time_pattern = r"# Tiempo simulado = (\d+\.\d+) \[fs\]"
 
-    match = re.search(time_pattern, output)
-    if not match:
-        raise ValueError("No time information found in the output")
+    num_particles_match = re.search(num_particles_pattern, output)
+    total_time_match = re.search(total_time_pattern, output)
+    simulated_time_match = re.search(simulated_time_pattern, output)
 
-    return float(match.group(1))
+    if not num_particles_match or not total_time_match or not simulated_time_match:
+        raise ValueError("Missing information in the output")
+
+    num_particles = int(num_particles_match.group(1))
+    total_time = float(total_time_match.group(1))
+    simulated_time = float(simulated_time_match.group(1))
+
+    # return (num_particles * (num_particles - 1) / 2) * simulated_time / total_time
+    return total_time
 
 
 def save_to_file(name: str, n_values: List[int], avg_times: List[float], std_devs: List[float]):
@@ -100,7 +109,6 @@ def plot_benchmark_stats(name: str):
     plt.title("Benchmark Stats")
 
     plt.savefig(f"benchmark/plots/{name}.png", dpi=300)
-    plt.show()
 
 
 if __name__ == "__main__":
