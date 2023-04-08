@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE 500  // M_PI
+#define _XOPEN_SOURCE 500 // M_PI
 #include "core.h"
 #include "parameters.h"
 #include "wtime.h"
@@ -25,9 +25,9 @@ int main(int argc, char* argv[])
         }
     }
 
-    FILE *file_xyz, *file_thermo;
-    file_xyz = fopen("trajectory.xyz", "w");
-    file_thermo = fopen("thermo.log", "w");
+    // FILE *file_xyz, *file_thermo;
+    // file_xyz = fopen("trajectory.xyz", "w");
+    // file_thermo = fopen("thermo.log", "w");
     double Ekin, Epot, Temp, Pres; // variables macroscopicas
     double Rho, cell_V, cell_L, tail, Etail, Ptail;
     double *rxyz, *vxyz, *fxyz; // variables microscopicas
@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
     printf("# Pasos de medición:         %d\n", TRUN - TEQ);
     printf("# (mediciones cada %d pasos)\n", TMES);
     printf("# densidad, volumen, energía potencial media, presión media\n");
-    fprintf(file_thermo, "# t Temp Pres Epot Etot\n");
+    // fprintf(file_thermo, "# t Temp Pres Epot Etot\n");
 
     srand(SEED);
     double t = 0.0, sf;
@@ -96,11 +96,11 @@ int main(int argc, char* argv[])
                 presm += Pres;
                 mes++;
 
-                fprintf(file_thermo, "%f %f %f %f %f\n", t, Temp, Pres, Epot, Epot + Ekin);
-                fprintf(file_xyz, "%d\n\n", N);
-                for (int k = 0; k < 3 * N; k += 3) {
-                    fprintf(file_xyz, "Ar %e %e %e\n", rxyz[k + 0], rxyz[k + 1], rxyz[k + 2]);
-                }
+                // fprintf(file_thermo, "%f %f %f %f %f\n", t, Temp, Pres, Epot, Epot + Ekin);
+                // fprintf(file_xyz, "%d\n\n", N);
+                // for (int k = 0; k < 3 * N; k += 3) {
+                //     fprintf(file_xyz, "Ar %e %e %e\n", rxyz[k + 0], rxyz[k + 1], rxyz[k + 2]);
+                // }
             }
 
             t += DT;
