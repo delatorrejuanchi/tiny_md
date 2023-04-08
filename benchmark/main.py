@@ -25,7 +25,7 @@ def run_tiny_md(N: int) -> str:
 
 
 def benchmark(name: str, n_values: List[int], num_runs: int):
-    avg_times = []
+    avg_performances = []
     std_devs = []
 
     print(f"Running benchmark with {n_values} particles {num_runs} times")
@@ -34,39 +34,37 @@ def benchmark(name: str, n_values: List[int], num_runs: int):
         run_tiny_md(n)  # Warmup
         print("OK")
 
-        run_times = []
+        run_metrics = []
         for i in range(num_runs):
-            print(f"N = {n}: {i}/{num_runs}...", end=" ", flush=True)
-            run_times.append(get_performance_from_output(run_tiny_md(n)))
+            print(f"N = {n}: {i+1}/{num_runs}...", end=" ", flush=True)
+            metric = get_performance_from_output(run_tiny_md(n))
+            run_metrics.append(metric)
             print("OK")
 
-        avg_time = np.mean(run_times)
-        std_dev = np.std(run_times)
+        avg_performance = np.mean(run_metrics)
+        std_dev = np.std(run_metrics)
 
-        avg_times.append(avg_time)
+        avg_performances.append(avg_performance)
         std_devs.append(std_dev)
 
-    save_to_file(name, n_values, avg_times, std_devs)
+    save_to_file(name, n_values, avg_performances, std_devs)
 
 
 def get_performance_from_output(output: str) -> float:
     num_particles_pattern = r"# Número de partículas:\s+(\d+)"
     total_time_pattern = r"# Tiempo total de simulación = (\d+\.\d+) segundos"
-    simulated_time_pattern = r"# Tiempo simulado = (\d+\.\d+) \[fs\]"
 
     num_particles_match = re.search(num_particles_pattern, output)
     total_time_match = re.search(total_time_pattern, output)
-    simulated_time_match = re.search(simulated_time_pattern, output)
 
-    if not num_particles_match or not total_time_match or not simulated_time_match:
+    if not num_particles_match or not total_time_match:
         raise ValueError("Missing information in the output")
 
     num_particles = int(num_particles_match.group(1))
     total_time = float(total_time_match.group(1))
-    simulated_time = float(simulated_time_match.group(1))
 
-    # return (num_particles * (num_particles - 1) / 2) * simulated_time / total_time
-    return total_time
+    # Metric proportional to interactions per second
+    return (num_particles * (num_particles - 1)) / total_time
 
 
 def save_to_file(name: str, n_values: List[int], avg_times: List[float], std_devs: List[float]):
@@ -91,6 +89,8 @@ def plot_benchmark_stats(name: str):
     stats_files = sorted(
         Path("benchmark/stats").glob("*.csv"), key=os.path.getctime)
 
+    plt.figure(figsize=(10, 10))
+
     for filepath in stats_files:
         print(f"Reading {filepath}...")
         df = pd.read_csv(filepath)
@@ -101,14 +101,14 @@ def plot_benchmark_stats(name: str):
         std_devs = df["std"].values
 
         plt.errorbar(n_values, avg_times, yerr=std_devs,
-                     capsize=5, label=filepath.name)
+                     capsize=10, label=filepath.name)
 
     plt.xlabel("N")
-    plt.ylabel("Average Time (s)")
+    plt.ylabel("Interacciones por unidad de tiempo")
     plt.legend()
     plt.title("Benchmark Stats")
 
-    plt.savefig(f"benchmark/plots/{name}.png", dpi=300)
+    plt.savefig(f"benchmark/plots/{name}.png", dpi=500)
 
 
 if __name__ == "__main__":

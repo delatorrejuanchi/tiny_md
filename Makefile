@@ -33,7 +33,7 @@ rebuild-and-test:
 	make test
 
 benchmark:
-	python3 benchmark/main.py $(name) --n-values 256 500 864 1372 --num-runs 3
+	python3 benchmark/main.py $(name) --n-values 256 500 864 1372 2048 --num-runs 3
 
 plot:
 	python3 benchmark/main.py $(name) --mode plot
