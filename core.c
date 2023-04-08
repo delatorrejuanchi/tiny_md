@@ -22,7 +22,7 @@ void init_pos(double* rxyz, const double rho)
                 rxyz[idx + 0] = i * a; // x
                 rxyz[idx + 1] = j * a; // y
                 rxyz[idx + 2] = k * a; // z
-                    // del mismo átomo
+                                       // del mismo átomo
                 rxyz[idx + 3] = (i + 0.5) * a;
                 rxyz[idx + 4] = (j + 0.5) * a;
                 rxyz[idx + 5] = k * a;
@@ -76,16 +76,9 @@ void init_vel(double* vxyz, double* temp, double* ekin)
 }
 
 
-static double minimum_image(double cordi, const double cell_length)
+static double minimum_image(double cordi, const double cell_length, const double cell_length_r)
 {
-    // imagen más cercana
-
-    if (cordi <= -0.5 * cell_length) {
-        cordi += cell_length;
-    } else if (cordi > 0.5 * cell_length) {
-        cordi -= cell_length;
-    }
-    return cordi;
+    return cordi - cell_length * round(cordi * cell_length_r);
 }
 
 
@@ -101,6 +94,8 @@ void forces(const double* rxyz, double* fxyz, double* epot, double* pres,
     double rcut2 = RCUT * RCUT;
     *epot = 0.0;
 
+    double L_r = 1.0 / L;
+
     for (int i = 0; i < 3 * (N - 1); i += 3) {
 
         double xi = rxyz[i + 0];
@@ -115,11 +110,11 @@ void forces(const double* rxyz, double* fxyz, double* epot, double* pres,
 
             // distancia mínima entre r_i y r_j
             double rx = xi - xj;
-            rx = minimum_image(rx, L);
+            rx = minimum_image(rx, L, L_r);
             double ry = yi - yj;
-            ry = minimum_image(ry, L);
+            ry = minimum_image(ry, L, L_r);
             double rz = zi - zj;
-            rz = minimum_image(rz, L);
+            rz = minimum_image(rz, L, L_r);
 
             double rij2 = rx * rx + ry * ry + rz * rz;
 
@@ -147,15 +142,9 @@ void forces(const double* rxyz, double* fxyz, double* epot, double* pres,
 }
 
 
-static double pbc(double cordi, const double cell_length)
+static double pbc(double cordi, const double cell_length, const double cell_length_r)
 {
-    // condiciones periodicas de contorno coordenadas entre [0,L)
-    if (cordi <= 0) {
-        cordi += cell_length;
-    } else if (cordi > cell_length) {
-        cordi -= cell_length;
-    }
-    return cordi;
+    return cordi - cell_length * floor(cordi * cell_length_r);
 }
 
 
@@ -163,15 +152,16 @@ void velocity_verlet(double* rxyz, double* vxyz, double* fxyz, double* epot,
                      double* ekin, double* pres, double* temp, const double rho,
                      const double V, const double L)
 {
+    double L_r = 1.0 / L;
 
     for (int i = 0; i < 3 * N; i += 3) { // actualizo posiciones
         rxyz[i + 0] += vxyz[i + 0] * DT + 0.5 * fxyz[i + 0] * DT * DT;
         rxyz[i + 1] += vxyz[i + 1] * DT + 0.5 * fxyz[i + 1] * DT * DT;
         rxyz[i + 2] += vxyz[i + 2] * DT + 0.5 * fxyz[i + 2] * DT * DT;
 
-        rxyz[i + 0] = pbc(rxyz[i + 0], L);
-        rxyz[i + 1] = pbc(rxyz[i + 1], L);
-        rxyz[i + 2] = pbc(rxyz[i + 2], L);
+        rxyz[i + 0] = pbc(rxyz[i + 0], L, L_r);
+        rxyz[i + 1] = pbc(rxyz[i + 1], L, L_r);
+        rxyz[i + 2] = pbc(rxyz[i + 2], L, L_r);
 
         vxyz[i + 0] += 0.5 * fxyz[i + 0] * DT;
         vxyz[i + 1] += 0.5 * fxyz[i + 1] * DT;
