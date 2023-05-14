@@ -95,27 +95,28 @@ void forces(const double* restrict rxyz, double* restrict fxyz, double* restrict
 
     double L_r = 1.0 / L;
 
+    double ri[3], rj[3], rij[3];
+
     for (int i = 0; i < 3 * (N - 1); i += 3) {
 
-        double xi = rxyz[i + 0];
-        double yi = rxyz[i + 1];
-        double zi = rxyz[i + 2];
+        for (int k = 0; k < 3; k++)
+            ri[k] = rxyz[i + k];
 
         for (int j = i + 3; j < 3 * N; j += 3) {
 
-            double xj = rxyz[j + 0];
-            double yj = rxyz[j + 1];
-            double zj = rxyz[j + 2];
+            for (int k = 0; k < 3; k++)
+                rj[k] = rxyz[j + k];
 
             // distancia mínima entre r_i y r_j
-            double rx = xi - xj;
-            rx = minimum_image(rx, L, L_r);
-            double ry = yi - yj;
-            ry = minimum_image(ry, L, L_r);
-            double rz = zi - zj;
-            rz = minimum_image(rz, L, L_r);
+            for (int k = 0; k < 3; k++)
+                rij[k] = ri[k] - rj[k];
 
-            double rij2 = rx * rx + ry * ry + rz * rz;
+            for (int k = 0; k < 3; k++)
+                rij[k] = minimum_image(rij[k], L, L_r);
+
+            double rij2 = 0;
+            for (int k = 0; k < 3; k++)
+                rij2 += rij[k] * rij[k];
 
             if (rij2 <= rcut2) {
                 double r2inv = 1.0 / rij2;
@@ -123,13 +124,10 @@ void forces(const double* restrict rxyz, double* restrict fxyz, double* restrict
 
                 double fr = 24.0 * r2inv * r6inv * (2.0 * r6inv - 1.0);
 
-                fxyz[i + 0] += fr * rx;
-                fxyz[i + 1] += fr * ry;
-                fxyz[i + 2] += fr * rz;
-
-                fxyz[j + 0] -= fr * rx;
-                fxyz[j + 1] -= fr * ry;
-                fxyz[j + 2] -= fr * rz;
+                for (int k = 0; k < 3; k++) {
+                    fxyz[i + k] += rij[k] * fr;
+                    fxyz[j + k] -= rij[k] * fr;
+                }
 
                 *epot += 4.0 * r6inv * (r6inv - 1.0) - ECUT;
                 pres_vir += fr * rij2;
@@ -151,31 +149,36 @@ void velocity_verlet(double* restrict rxyz, double* restrict vxyz, double* restr
                      double* restrict ekin, double* restrict pres, double* restrict temp, const double rho,
                      const double V, const double L)
 {
-    double L_r = 1.0 / L;
-    double DT_2 = 0.5 * DT;
+    const double L_r = 1.0 / L;
+    const double DT_2 = 0.5 * DT;
+    const double DT2_2 = DT * DT_2;
 
-    for (int i = 0; i < 3 * N; i += 3) { // actualizo posiciones
-        rxyz[i + 0] += vxyz[i + 0] * DT + fxyz[i + 0] * DT_2 * DT;
-        rxyz[i + 1] += vxyz[i + 1] * DT + fxyz[i + 1] * DT_2 * DT;
-        rxyz[i + 2] += vxyz[i + 2] * DT + fxyz[i + 2] * DT_2 * DT;
+    for (int i = 0; i < 3 * N; i++) { // actualizo posiciones
+        rxyz[i] += vxyz[i] * DT;
+    }
 
+    for (int i = 0; i < 3 * N; i++) {
+        rxyz[i] += fxyz[i] * DT2_2;
+    }
+
+    for (int i = 0; i < 3 * N; i += 3) {
         rxyz[i + 0] = pbc(rxyz[i + 0], L, L_r);
         rxyz[i + 1] = pbc(rxyz[i + 1], L, L_r);
         rxyz[i + 2] = pbc(rxyz[i + 2], L, L_r);
+    }
 
-        vxyz[i + 0] += fxyz[i + 0] * DT_2;
-        vxyz[i + 1] += fxyz[i + 1] * DT_2;
-        vxyz[i + 2] += fxyz[i + 2] * DT_2;
+    for (int i = 0; i < 3 * N; i++) {
+        vxyz[i] += fxyz[i] * DT_2;
     }
 
     forces(rxyz, fxyz, epot, pres, temp, rho, V, L); // actualizo fuerzas
 
-    double sumv2 = 0.0;
-    for (int i = 0; i < 3 * N; i += 3) { // actualizo velocidades
-        vxyz[i + 0] += fxyz[i + 0] * DT_2;
-        vxyz[i + 1] += fxyz[i + 1] * DT_2;
-        vxyz[i + 2] += fxyz[i + 2] * DT_2;
+    for (int i = 0; i < 3 * N; i++) { // actualizo velocidades
+        vxyz[i] += fxyz[i] * DT_2;
+    }
 
+    double sumv2 = 0.0;
+    for (int i = 0; i < 3 * N; i += 3) { // calculo la temperatura instantánea
         sumv2 += vxyz[i + 0] * vxyz[i + 0] + vxyz[i + 1] * vxyz[i + 1] + vxyz[i + 2] * vxyz[i + 2];
     }
 
