@@ -1,10 +1,10 @@
-python3 -m venv pyenv
+# python3 -m venv pyenv
 
-# Activate the virtual environment
-source pyenv/bin/activate
+# # Activate the virtual environment
+# source pyenv/bin/activate
 
-# Install the required packages
-pip3 install pandas numpy matplotlib
+# # Install the required packages
+# pip3 install pandas numpy matplotlib
 
 # clean
 
@@ -13,6 +13,7 @@ make clean
 
 # lab 1 baseline
 git checkout main
+make
 make name=baseline benchmark
 
 # lab 2 vectorization
