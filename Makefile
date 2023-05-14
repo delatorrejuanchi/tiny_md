@@ -1,5 +1,5 @@
-CC      = gcc
-CFLAGS	= -Ofast -march=native -funsafe-math-optimizations -ffinite-math-only -funroll-loops
+CC      = gcc-12
+CFLAGS	= -O3 -march=native
 WFLAGS	= -std=c11 -Wall -Wextra -g
 LDFLAGS	= -lm
 
