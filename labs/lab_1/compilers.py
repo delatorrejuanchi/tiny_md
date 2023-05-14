@@ -15,6 +15,9 @@ flags_map = {
         "-O3",
         "-Ofast",
     ],
+    "gcc-12": [
+        "-Ofast",
+    ]
 }
 
 
