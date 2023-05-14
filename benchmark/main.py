@@ -54,9 +54,9 @@ def benchmark(name: str, n_values: List[int], num_runs: int):
 
     print(f"Running benchmark with {n_values} particles {num_runs} times")
     for n in n_values:
-        print(f"Warming up for N = {n}...", end=" ", flush=True)
-        run_tiny_md(n)  # Warmup
-        print("OK")
+        # print(f"Warming up for N = {n}...", end=" ", flush=True)
+        # run_tiny_md(n)  # Warmup
+        # print("OK")
 
         run_metrics = []
         for i in range(num_runs):
