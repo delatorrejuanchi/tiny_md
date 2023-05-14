@@ -6,9 +6,7 @@
 
 #define ECUT (4.0 * (pow(RCUT, -12) - pow(RCUT, -6)))
 
-int N = DEFAULT_N;
-
-void init_pos(double* rxyz, const double rho)
+void init_pos(double* restrict rxyz, const double rho)
 {
     // inicialización de las posiciones de los átomos en un cristal FCC
 
@@ -42,7 +40,7 @@ void init_pos(double* rxyz, const double rho)
 }
 
 
-void init_vel(double* vxyz, double* temp, double* ekin)
+void init_vel(double* restrict vxyz, double* restrict temp, double* restrict ekin)
 {
     // inicialización de velocidades aleatorias
 
@@ -56,8 +54,7 @@ void init_vel(double* vxyz, double* temp, double* ekin)
         sumvx += vxyz[i + 0];
         sumvy += vxyz[i + 1];
         sumvz += vxyz[i + 2];
-        sumv2 += vxyz[i + 0] * vxyz[i + 0] + vxyz[i + 1] * vxyz[i + 1]
-            + vxyz[i + 2] * vxyz[i + 2];
+        sumv2 += vxyz[i + 0] * vxyz[i + 0] + vxyz[i + 1] * vxyz[i + 1] + vxyz[i + 2] * vxyz[i + 2];
     }
 
     sumvx /= (double)N;
@@ -82,14 +79,16 @@ static double minimum_image(double cordi, const double cell_length, const double
 }
 
 
-void forces(const double* rxyz, double* fxyz, double* epot, double* pres,
-            const double* temp, const double rho, const double V, const double L)
+void forces(const double* restrict rxyz, double* restrict fxyz, double* restrict epot, double* restrict pres,
+            const double* restrict temp, const double rho, const double V, const double L)
 {
     // calcula las fuerzas LJ (12-6)
 
+    // gets optimized to __builtin_memset
     for (int i = 0; i < 3 * N; i++) {
         fxyz[i] = 0.0;
     }
+
     double pres_vir = 0.0;
     double rcut2 = RCUT * RCUT;
     *epot = 0.0;
@@ -148,36 +147,36 @@ static double pbc(double cordi, const double cell_length, const double cell_leng
 }
 
 
-void velocity_verlet(double* rxyz, double* vxyz, double* fxyz, double* epot,
-                     double* ekin, double* pres, double* temp, const double rho,
+void velocity_verlet(double* restrict rxyz, double* restrict vxyz, double* restrict fxyz, double* restrict epot,
+                     double* restrict ekin, double* restrict pres, double* restrict temp, const double rho,
                      const double V, const double L)
 {
     double L_r = 1.0 / L;
+    double DT_2 = 0.5 * DT;
 
     for (int i = 0; i < 3 * N; i += 3) { // actualizo posiciones
-        rxyz[i + 0] += vxyz[i + 0] * DT + 0.5 * fxyz[i + 0] * DT * DT;
-        rxyz[i + 1] += vxyz[i + 1] * DT + 0.5 * fxyz[i + 1] * DT * DT;
-        rxyz[i + 2] += vxyz[i + 2] * DT + 0.5 * fxyz[i + 2] * DT * DT;
+        rxyz[i + 0] += vxyz[i + 0] * DT + fxyz[i + 0] * DT_2 * DT;
+        rxyz[i + 1] += vxyz[i + 1] * DT + fxyz[i + 1] * DT_2 * DT;
+        rxyz[i + 2] += vxyz[i + 2] * DT + fxyz[i + 2] * DT_2 * DT;
 
         rxyz[i + 0] = pbc(rxyz[i + 0], L, L_r);
         rxyz[i + 1] = pbc(rxyz[i + 1], L, L_r);
         rxyz[i + 2] = pbc(rxyz[i + 2], L, L_r);
 
-        vxyz[i + 0] += 0.5 * fxyz[i + 0] * DT;
-        vxyz[i + 1] += 0.5 * fxyz[i + 1] * DT;
-        vxyz[i + 2] += 0.5 * fxyz[i + 2] * DT;
+        vxyz[i + 0] += fxyz[i + 0] * DT_2;
+        vxyz[i + 1] += fxyz[i + 1] * DT_2;
+        vxyz[i + 2] += fxyz[i + 2] * DT_2;
     }
 
     forces(rxyz, fxyz, epot, pres, temp, rho, V, L); // actualizo fuerzas
 
     double sumv2 = 0.0;
     for (int i = 0; i < 3 * N; i += 3) { // actualizo velocidades
-        vxyz[i + 0] += 0.5 * fxyz[i + 0] * DT;
-        vxyz[i + 1] += 0.5 * fxyz[i + 1] * DT;
-        vxyz[i + 2] += 0.5 * fxyz[i + 2] * DT;
+        vxyz[i + 0] += fxyz[i + 0] * DT_2;
+        vxyz[i + 1] += fxyz[i + 1] * DT_2;
+        vxyz[i + 2] += fxyz[i + 2] * DT_2;
 
-        sumv2 += vxyz[i + 0] * vxyz[i + 0] + vxyz[i + 1] * vxyz[i + 1]
-            + vxyz[i + 2] * vxyz[i + 2];
+        sumv2 += vxyz[i + 0] * vxyz[i + 0] + vxyz[i + 1] * vxyz[i + 1] + vxyz[i + 2] * vxyz[i + 2];
     }
 
     *ekin = 0.5 * sumv2;

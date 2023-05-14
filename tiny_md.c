@@ -8,33 +8,15 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-int main(int argc, char* argv[])
+double rxyz[3 * N], vxyz[3 * N], fxyz[3 * N];
+
+int main()
 {
-    if (argc > 2) {
-        fprintf(stderr, "Usage: %s <número de particulas>\n", argv[0]);
-        return 1;
-    }
-
-    if (argc == 2) {
-        N = atoi(argv[1]);
-
-        int m = cbrt(N / 4.0);
-        if (N != 4 * m * m * m) {
-            fprintf(stderr, "Error: N debe ser un 4m^3 para el cristal inicial\n");
-            return 1;
-        }
-    }
-
     // FILE *file_xyz, *file_thermo;
     // file_xyz = fopen("trajectory.xyz", "w");
     // file_thermo = fopen("thermo.log", "w");
     double Ekin, Epot, Temp, Pres; // variables macroscopicas
     double Rho, cell_V, cell_L, tail, Etail, Ptail;
-    double *rxyz, *vxyz, *fxyz; // variables microscopicas
-
-    rxyz = (double*)malloc(3 * N * sizeof(double));
-    vxyz = (double*)malloc(3 * N * sizeof(double));
-    fxyz = (double*)malloc(3 * N * sizeof(double));
 
     printf("# Número de partículas:      %d\n", N);
     printf("# Temperatura de referencia: %.2f\n", T0);
