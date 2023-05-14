@@ -1,4 +1,4 @@
-CC      = gcc-12
+CC      = gcc-12 $(USER_DEFINES)
 CFLAGS	= -O3 -march=native -ftree-vectorize -fopt-info-vec-optimized -fopt-info-vec-missed
 WFLAGS	= -std=c11 -Wall -Wextra -g
 LDFLAGS	= -lm
