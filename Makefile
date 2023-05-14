@@ -1,9 +1,10 @@
-CC      = gcc-12
+CC      = gcc-12 $(USER_DEFINES)
 CFLAGS	= -O3 -march=native
 WFLAGS	= -std=c11 -Wall -Wextra -g
 LDFLAGS	= -lm
 
-TARGETS	= tiny_md viz
+# TARGETS	= tiny_md viz
+TARGETS	= tiny_md
 SOURCES	= $(shell echo *.c)
 OBJECTS = core.o wtime.o
 
