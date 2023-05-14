@@ -3,6 +3,7 @@
 #include "parameters.h"
 #include "wtime.h"
 
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +13,9 @@ double rxyz[3 * N], vxyz[3 * N], fxyz[3 * N];
 
 int main()
 {
+    int m = cbrt(N / 4.0);
+    assert(m * m * m * 4 == N);
+
     // FILE *file_xyz, *file_thermo;
     // file_xyz = fopen("trajectory.xyz", "w");
     // file_thermo = fopen("thermo.log", "w");
