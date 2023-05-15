@@ -44,31 +44,28 @@ void init_vel(double* restrict vxyz, double* restrict temp, double* restrict eki
 {
     // inicialización de velocidades aleatorias
 
-    double sf, sumvx = 0.0, sumvy = 0.0, sumvz = 0.0, sumv2 = 0.0;
+    double sf, sumv2 = 0.0;
+    double sumv[3] = { 0.0, 0.0, 0.0 };
 
     for (int i = 0; i < 3 * N; i += 3) {
-        vxyz[i + 0] = rand() / (double)RAND_MAX - 0.5;
-        vxyz[i + 1] = rand() / (double)RAND_MAX - 0.5;
-        vxyz[i + 2] = rand() / (double)RAND_MAX - 0.5;
-
-        sumvx += vxyz[i + 0];
-        sumvy += vxyz[i + 1];
-        sumvz += vxyz[i + 2];
-        sumv2 += vxyz[i + 0] * vxyz[i + 0] + vxyz[i + 1] * vxyz[i + 1] + vxyz[i + 2] * vxyz[i + 2];
+        for (int j = 0; j < 3; j++) {
+            vxyz[i + j] = rand() / (double)RAND_MAX - 0.5;
+            sumv[j] += vxyz[i + j];
+            sumv2 += vxyz[i + j] * vxyz[i + j];
+        }
     }
 
-    sumvx /= (double)N;
-    sumvy /= (double)N;
-    sumvz /= (double)N;
+    for (int j = 0; j < 3; j++)
+        sumv[j] /= (double)N;
+
     *temp = sumv2 / (3.0 * N);
     *ekin = 0.5 * sumv2;
     sf = sqrt(T0 / *temp);
 
     for (int i = 0; i < 3 * N; i += 3) { // elimina la velocidad del centro de masa
-        // y ajusta la temperatura
-        vxyz[i + 0] = (vxyz[i + 0] - sumvx) * sf;
-        vxyz[i + 1] = (vxyz[i + 1] - sumvy) * sf;
-        vxyz[i + 2] = (vxyz[i + 2] - sumvz) * sf;
+        for (int j = 0; j < 3; j++) { // y ajusta la temperatura
+            vxyz[i + j] = sf * (vxyz[i + j] - sumv[j]);
+        }
     }
 }
 
@@ -89,13 +86,13 @@ void forces(const double* restrict rxyz, double* restrict fxyz, double* restrict
         fxyz[i] = 0.0;
     }
 
-    double pres_vir = 0.0;
     double rcut2 = RCUT * RCUT;
-    *epot = 0.0;
+    const double L_r = 1.0 / L;
 
-    double L_r = 1.0 / L;
-
+    double rij2;
     double ri[3], rj[3], rij[3];
+    double _epot = 0.0;
+    double pres_vir = 0.0;
 
     for (int i = 0; i < 3 * (N - 1); i += 3) {
 
@@ -114,7 +111,7 @@ void forces(const double* restrict rxyz, double* restrict fxyz, double* restrict
             for (int k = 0; k < 3; k++)
                 rij[k] = minimum_image(rij[k], L, L_r);
 
-            double rij2 = 0;
+            rij2 = 0.0;
             for (int k = 0; k < 3; k++)
                 rij2 += rij[k] * rij[k];
 
@@ -129,15 +126,16 @@ void forces(const double* restrict rxyz, double* restrict fxyz, double* restrict
                     fxyz[j + k] -= rij[k] * fr;
                 }
 
-                *epot += 4.0 * r6inv * (r6inv - 1.0) - ECUT;
+                _epot += 4.0 * r6inv * (r6inv - 1.0) - ECUT;
                 pres_vir += fr * rij2;
             }
         }
     }
-    pres_vir /= (V * 3.0);
+
+    *epot = _epot;
+    pres_vir /= (3.0 * V);
     *pres = *temp * rho + pres_vir;
 }
-
 
 static double pbc(double cordi, const double cell_length, const double cell_length_r)
 {
@@ -151,35 +149,25 @@ void velocity_verlet(double* restrict rxyz, double* restrict vxyz, double* restr
 {
     const double L_r = 1.0 / L;
     const double DT_2 = 0.5 * DT;
-    const double DT2_2 = DT * DT_2;
 
-    for (int i = 0; i < 3 * N; i++) { // actualizo posiciones
+    for (int i = 0; i < 3 * N; i++) {
+        vxyz[i] += fxyz[i] * DT_2;
+    }
+
+    for (int i = 0; i < 3 * N; i++) {
         rxyz[i] += vxyz[i] * DT;
     }
 
     for (int i = 0; i < 3 * N; i++) {
-        rxyz[i] += fxyz[i] * DT2_2;
-    }
-
-    for (int i = 0; i < 3 * N; i += 3) {
-        rxyz[i + 0] = pbc(rxyz[i + 0], L, L_r);
-        rxyz[i + 1] = pbc(rxyz[i + 1], L, L_r);
-        rxyz[i + 2] = pbc(rxyz[i + 2], L, L_r);
-    }
-
-    for (int i = 0; i < 3 * N; i++) {
-        vxyz[i] += fxyz[i] * DT_2;
+        rxyz[i] = pbc(rxyz[i], L, L_r);
     }
 
     forces(rxyz, fxyz, epot, pres, temp, rho, V, L); // actualizo fuerzas
 
-    for (int i = 0; i < 3 * N; i++) { // actualizo velocidades
-        vxyz[i] += fxyz[i] * DT_2;
-    }
-
     double sumv2 = 0.0;
-    for (int i = 0; i < 3 * N; i += 3) { // calculo la temperatura instantánea
-        sumv2 += vxyz[i + 0] * vxyz[i + 0] + vxyz[i + 1] * vxyz[i + 1] + vxyz[i + 2] * vxyz[i + 2];
+    for (int i = 0; i < 3 * N; i++) { // actualizo velocidades
+        vxyz[i] += 0.5 * fxyz[i] * DT;
+        sumv2 += vxyz[i] * vxyz[i];
     }
 
     *ekin = 0.5 * sumv2;
