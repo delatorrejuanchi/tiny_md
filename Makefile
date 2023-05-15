@@ -1,5 +1,5 @@
-CC      = gcc-12 $(USER_DEFINES)
-CFLAGS	= -O3 -march=native
+CC      = clang $(USER_DEFINES)
+CFLAGS  = -Ofast -march=native
 WFLAGS	= -std=c11 -Wall -Wextra -g
 LDFLAGS	= -lm
 
