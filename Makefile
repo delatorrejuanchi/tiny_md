@@ -1,5 +1,5 @@
 CC      = clang $(USER_DEFINES)
-CFLAGS  = -Ofast -march=native
+CFLAGS  = -Ofast -march=native -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize -ffp-contract=fast
 WFLAGS	= -std=c11 -Wall -Wextra -g
 LDFLAGS	= -lm
 

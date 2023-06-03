@@ -6,14 +6,12 @@
 
 #define ECUT (4.0 * (pow(RCUT, -12) - pow(RCUT, -6)))
 
-int N = DEFAULT_N;
-
-void init_pos(double* rxyz, const double rho)
+void init_pos(float* restrict rxyz, const float rho)
 {
     // inicialización de las posiciones de los átomos en un cristal FCC
 
-    double a = cbrt(4.0 / rho);
-    int nucells = ceil(cbrt((double)N / 4.0));
+    float a = cbrtf(4.0 / rho);
+    int nucells = ceilf(cbrtf((float)N / 4.0));
     int idx = 0;
 
     for (int i = 0; i < nucells; i++) {
@@ -42,142 +40,134 @@ void init_pos(double* rxyz, const double rho)
 }
 
 
-void init_vel(double* vxyz, double* temp, double* ekin)
+void init_vel(float* restrict vxyz, float* restrict temp, float* restrict ekin)
 {
     // inicialización de velocidades aleatorias
 
-    double sf, sumvx = 0.0, sumvy = 0.0, sumvz = 0.0, sumv2 = 0.0;
+    float sf, sumv2 = 0.0;
+    float sumv[3] = { 0.0, 0.0, 0.0 };
 
     for (int i = 0; i < 3 * N; i += 3) {
-        vxyz[i + 0] = rand() / (double)RAND_MAX - 0.5;
-        vxyz[i + 1] = rand() / (double)RAND_MAX - 0.5;
-        vxyz[i + 2] = rand() / (double)RAND_MAX - 0.5;
-
-        sumvx += vxyz[i + 0];
-        sumvy += vxyz[i + 1];
-        sumvz += vxyz[i + 2];
-        sumv2 += vxyz[i + 0] * vxyz[i + 0] + vxyz[i + 1] * vxyz[i + 1]
-            + vxyz[i + 2] * vxyz[i + 2];
+        for (int j = 0; j < 3; j++) {
+            vxyz[i + j] = rand() / (float)RAND_MAX - 0.5;
+            sumv[j] += vxyz[i + j];
+            sumv2 += vxyz[i + j] * vxyz[i + j];
+        }
     }
 
-    sumvx /= (double)N;
-    sumvy /= (double)N;
-    sumvz /= (double)N;
+    for (int j = 0; j < 3; j++)
+        sumv[j] /= (float)N;
+
     *temp = sumv2 / (3.0 * N);
     *ekin = 0.5 * sumv2;
-    sf = sqrt(T0 / *temp);
+    sf = sqrtf(T0 / *temp);
 
     for (int i = 0; i < 3 * N; i += 3) { // elimina la velocidad del centro de masa
-        // y ajusta la temperatura
-        vxyz[i + 0] = (vxyz[i + 0] - sumvx) * sf;
-        vxyz[i + 1] = (vxyz[i + 1] - sumvy) * sf;
-        vxyz[i + 2] = (vxyz[i + 2] - sumvz) * sf;
+        for (int j = 0; j < 3; j++) { // y ajusta la temperatura
+            vxyz[i + j] = sf * (vxyz[i + j] - sumv[j]);
+        }
     }
 }
 
 
-static double minimum_image(double cordi, const double cell_length, const double cell_length_r)
+static float minimum_image(float cordi, const float cell_length, const float cell_length_r)
 {
-    return cordi - cell_length * round(cordi * cell_length_r);
+    return cordi - cell_length * roundf(cordi * cell_length_r);
 }
 
 
-void forces(const double* rxyz, double* fxyz, double* epot, double* pres,
-            const double* temp, const double rho, const double V, const double L)
+void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict epot, float* restrict pres,
+            const float* restrict temp, const float rho, const float V, const float L)
 {
     // calcula las fuerzas LJ (12-6)
 
+    // gets optimized to __builtin_memset
     for (int i = 0; i < 3 * N; i++) {
         fxyz[i] = 0.0;
     }
-    double pres_vir = 0.0;
-    double rcut2 = RCUT * RCUT;
-    *epot = 0.0;
 
-    double L_r = 1.0 / L;
+    float rcut2 = RCUT * RCUT;
+    const float L_r = 1.0 / L;
+
+    float rij2;
+    float ri[3], rj[3], rij[3];
+    float _epot = 0.0;
+    float pres_vir = 0.0;
 
     for (int i = 0; i < 3 * (N - 1); i += 3) {
 
-        double xi = rxyz[i + 0];
-        double yi = rxyz[i + 1];
-        double zi = rxyz[i + 2];
+        for (int k = 0; k < 3; k++)
+            ri[k] = rxyz[i + k];
 
         for (int j = i + 3; j < 3 * N; j += 3) {
 
-            double xj = rxyz[j + 0];
-            double yj = rxyz[j + 1];
-            double zj = rxyz[j + 2];
+            for (int k = 0; k < 3; k++)
+                rj[k] = rxyz[j + k];
 
             // distancia mínima entre r_i y r_j
-            double rx = xi - xj;
-            rx = minimum_image(rx, L, L_r);
-            double ry = yi - yj;
-            ry = minimum_image(ry, L, L_r);
-            double rz = zi - zj;
-            rz = minimum_image(rz, L, L_r);
+            for (int k = 0; k < 3; k++)
+                rij[k] = ri[k] - rj[k];
 
-            double rij2 = rx * rx + ry * ry + rz * rz;
+            for (int k = 0; k < 3; k++)
+                rij[k] = minimum_image(rij[k], L, L_r);
+
+            rij2 = 0.0;
+            for (int k = 0; k < 3; k++)
+                rij2 += rij[k] * rij[k];
 
             if (rij2 <= rcut2) {
-                double r2inv = 1.0 / rij2;
-                double r6inv = r2inv * r2inv * r2inv;
+                float r2inv = 1.0 / rij2;
+                float r6inv = r2inv * r2inv * r2inv;
 
-                double fr = 24.0 * r2inv * r6inv * (2.0 * r6inv - 1.0);
+                float fr = 24.0 * r2inv * r6inv * (2.0 * r6inv - 1.0);
 
-                fxyz[i + 0] += fr * rx;
-                fxyz[i + 1] += fr * ry;
-                fxyz[i + 2] += fr * rz;
+                for (int k = 0; k < 3; k++) {
+                    fxyz[i + k] += rij[k] * fr;
+                    fxyz[j + k] -= rij[k] * fr;
+                }
 
-                fxyz[j + 0] -= fr * rx;
-                fxyz[j + 1] -= fr * ry;
-                fxyz[j + 2] -= fr * rz;
-
-                *epot += 4.0 * r6inv * (r6inv - 1.0) - ECUT;
+                _epot += 4.0 * r6inv * (r6inv - 1.0) - ECUT;
                 pres_vir += fr * rij2;
             }
         }
     }
-    pres_vir /= (V * 3.0);
+
+    *epot = _epot;
+    pres_vir /= (3.0 * V);
     *pres = *temp * rho + pres_vir;
 }
 
-
-static double pbc(double cordi, const double cell_length, const double cell_length_r)
+static float pbc(float cordi, const float cell_length, const float cell_length_r)
 {
-    return cordi - cell_length * floor(cordi * cell_length_r);
+    return cordi - cell_length * floorf(cordi * cell_length_r);
 }
 
 
-void velocity_verlet(double* rxyz, double* vxyz, double* fxyz, double* epot,
-                     double* ekin, double* pres, double* temp, const double rho,
-                     const double V, const double L)
+void velocity_verlet(float* restrict rxyz, float* restrict vxyz, float* restrict fxyz, float* restrict epot,
+                     float* restrict ekin, float* restrict pres, float* restrict temp, const float rho,
+                     const float V, const float L)
 {
-    double L_r = 1.0 / L;
+    const float L_r = 1.0 / L;
+    const float DT_2 = 0.5 * DT;
 
-    for (int i = 0; i < 3 * N; i += 3) { // actualizo posiciones
-        rxyz[i + 0] += vxyz[i + 0] * DT + 0.5 * fxyz[i + 0] * DT * DT;
-        rxyz[i + 1] += vxyz[i + 1] * DT + 0.5 * fxyz[i + 1] * DT * DT;
-        rxyz[i + 2] += vxyz[i + 2] * DT + 0.5 * fxyz[i + 2] * DT * DT;
+    for (int i = 0; i < 3 * N; i++) {
+        vxyz[i] += fxyz[i] * DT_2;
+    }
 
-        rxyz[i + 0] = pbc(rxyz[i + 0], L, L_r);
-        rxyz[i + 1] = pbc(rxyz[i + 1], L, L_r);
-        rxyz[i + 2] = pbc(rxyz[i + 2], L, L_r);
+    for (int i = 0; i < 3 * N; i++) {
+        rxyz[i] += vxyz[i] * DT;
+    }
 
-        vxyz[i + 0] += 0.5 * fxyz[i + 0] * DT;
-        vxyz[i + 1] += 0.5 * fxyz[i + 1] * DT;
-        vxyz[i + 2] += 0.5 * fxyz[i + 2] * DT;
+    for (int i = 0; i < 3 * N; i++) {
+        rxyz[i] = pbc(rxyz[i], L, L_r);
     }
 
     forces(rxyz, fxyz, epot, pres, temp, rho, V, L); // actualizo fuerzas
 
-    double sumv2 = 0.0;
-    for (int i = 0; i < 3 * N; i += 3) { // actualizo velocidades
-        vxyz[i + 0] += 0.5 * fxyz[i + 0] * DT;
-        vxyz[i + 1] += 0.5 * fxyz[i + 1] * DT;
-        vxyz[i + 2] += 0.5 * fxyz[i + 2] * DT;
-
-        sumv2 += vxyz[i + 0] * vxyz[i + 0] + vxyz[i + 1] * vxyz[i + 1]
-            + vxyz[i + 2] * vxyz[i + 2];
+    float sumv2 = 0.0;
+    for (int i = 0; i < 3 * N; i++) { // actualizo velocidades
+        vxyz[i] += 0.5 * fxyz[i] * DT;
+        sumv2 += vxyz[i] * vxyz[i];
     }
 
     *ekin = 0.5 * sumv2;

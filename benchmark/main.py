@@ -13,8 +13,32 @@ DEFAULT_NUM_RUNS = 20
 
 
 def run_tiny_md(N: int) -> str:
+    subprocess.run(
+        ["rm", ".depend"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True
+    )
+
+    subprocess.run(
+        ["make", "clean"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True
+    )
+
+    subprocess.run(
+        ["make", f'USER_DEFINES="-DN={N}"'],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True
+    )
+
     result = subprocess.run(
-        ["./tiny_md", str(N)],
+        ["./tiny_md"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
