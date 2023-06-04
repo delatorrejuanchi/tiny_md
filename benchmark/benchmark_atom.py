@@ -2,23 +2,23 @@ import argparse
 import os
 import subprocess
 import re
-import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import List
-import pandas as pd
+import numpy as np
+import csv
 
 DEFAULT_N_VALUES = [256]
+DEFAULT_NTHREADS = 8
 DEFAULT_NUM_RUNS = 20
 
 
-def run_tiny_md(N: int) -> str:
+def run_tiny_md(N: int, NTHREADS: int) -> str:
     subprocess.run(
         ["rm", ".depend"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        check=True
+        check=False
     )
 
     subprocess.run(
@@ -29,8 +29,8 @@ def run_tiny_md(N: int) -> str:
         check=True
     )
 
-    subprocess.run(
-        ["make", f'N="-DN={N}"'],
+    result = subprocess.run(
+        ["make", f'N=-DN={N}', f'N_THREADS=-DN_THREADS={NTHREADS}'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -48,20 +48,16 @@ def run_tiny_md(N: int) -> str:
     return result.stdout
 
 
-def benchmark(name: str, n_values: List[int], num_runs: int):
+def benchmark(name: str, n_values: List[int], n_threads: int, num_runs: int):
     avg_performances = []
     std_devs = []
 
     print(f"Running benchmark with {n_values} particles {num_runs} times")
     for n in n_values:
-        # print(f"Warming up for N = {n}...", end=" ", flush=True)
-        # run_tiny_md(n)  # Warmup
-        # print("OK")
-
         run_metrics = []
         for i in range(num_runs):
             print(f"N = {n}: {i+1}/{num_runs}...", end=" ", flush=True)
-            metric = get_performance_from_output(run_tiny_md(n))
+            metric = get_performance_from_output(run_tiny_md(n, n_threads))
             run_metrics.append(metric)
             print("OK")
 
@@ -94,45 +90,27 @@ def get_performance_from_output(output: str) -> float:
 def save_to_file(name: str, n_values: List[int], avg_times: List[float], std_devs: List[float]):
     stats_file = os.path.join("benchmark/stats", f"{name}.csv")
 
+    data = []
     if os.path.exists(stats_file):
-        df = pd.read_csv(stats_file)
-    else:
-        df = pd.DataFrame(columns=["N", "avg", "std"])
+        with open(stats_file, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                data.append(row)
 
     for n, avg, std in zip(n_values, avg_times, std_devs):
-        if (df.N == n).any():
-            df.loc[df.N == n, ["avg", "std"]] = avg, std
+        for item in data:
+            if int(item["N"]) == n:
+                item["avg"] = avg
+                item["std"] = std
+                break
         else:
-            new_row = pd.DataFrame({"N": [n], "avg": [avg], "std": [std]})
-            df = pd.concat([df, new_row], ignore_index=True)
+            data.append({"N": n, "avg": avg, "std": std})
 
-    df.to_csv(stats_file, index=False)
-
-
-def plot_benchmark_stats(name: str):
-    stats_files = sorted(
-        Path("benchmark/stats").glob("*.csv"), key=os.path.getctime)
-
-    plt.figure(figsize=(10, 10))
-
-    for filepath in stats_files:
-        print(f"Reading {filepath}...")
-        df = pd.read_csv(filepath)
-        df.sort_values(by=["N"], inplace=True)
-
-        n_values = df["N"].values
-        avg_times = df["avg"].values
-        std_devs = df["std"].values
-
-        plt.errorbar(n_values, avg_times, yerr=std_devs,
-                     capsize=10, label=filepath.name)
-
-    plt.xlabel("N")
-    plt.ylabel("Interacciones por unidad de tiempo")
-    plt.legend()
-    plt.title("Benchmark Stats")
-
-    plt.savefig(f"benchmark/plots/{name}.png", dpi=500)
+    with open(stats_file, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=["N", "avg", "std"])
+        writer.writeheader()
+        for row in data:
+            writer.writerow(row)
 
 
 if __name__ == "__main__":
@@ -140,12 +118,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "name",
         help="Name for the benchmark. Used as the filename of the output csv file or plot."
-    )
-    parser.add_argument(
-        "--mode",
-        choices=["benchmark", "plot"],
-        default="benchmark",
-        help="Mode of operation. Can be 'benchmark' or 'plot'. Default is 'benchmark'.",
     )
     parser.add_argument(
         "--num-runs",
@@ -162,10 +134,13 @@ if __name__ == "__main__":
         default=DEFAULT_N_VALUES,
         help=f"List of N values to use. Default is {DEFAULT_N_VALUES}."
     )
+    parser.add_argument(
+        "--n-threads",
+        type=int,
+        metavar="NTHREADS",
+        default=DEFAULT_NTHREADS,
+        help=f"Number of threads to use. Default is {DEFAULT_NTHREADS}."
+    )
     args = parser.parse_args()
 
-    if args.mode == "benchmark":
-        benchmark(args.name, args.n_values, args.num_runs)
-
-    elif args.mode == "plot":
-        plot_benchmark_stats(args.name)
+    benchmark(args.name, args.n_values, args.n_threads, args.num_runs)
