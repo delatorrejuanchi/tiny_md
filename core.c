@@ -2,6 +2,7 @@
 #include "parameters.h"
 
 #include <math.h>
+#include <omp.h>
 #include <stdlib.h> // rand()
 
 #define ECUT (4.0 * (powf(RCUT, -12) - powf(RCUT, -6)))
