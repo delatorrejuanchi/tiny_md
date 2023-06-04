@@ -1,4 +1,4 @@
-CC      = clang $(USER_DEFINES)
+CC      = clang $(N) $(N_THREADS)
 CFLAGS  = -Ofast -march=native -Rpass=loop-vectorize -Rpass-missed=loop-vectorize -Rpass-analysis=loop-vectorize -ffp-contract=fast -cl-single-precision-constant -fopenmp
 WFLAGS	= -std=c11 -Wall -Wextra -g
 LDFLAGS	= -lm
