@@ -34,6 +34,11 @@
 #define RCUT 2.5
 #endif
 
+#ifndef RCUT2 // radio de corte al cuadrado
+#define RCUT2 6.25
+#endif
+
+
 #ifndef DT // paso temporal ~ 1.6 fs para el Ar
 #define DT 0.005
 #endif

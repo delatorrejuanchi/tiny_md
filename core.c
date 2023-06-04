@@ -4,7 +4,7 @@
 #include <math.h>
 #include <stdlib.h> // rand()
 
-#define ECUT (4.0 * (pow(RCUT, -12) - pow(RCUT, -6)))
+#define ECUT (4.0 * (powf(RCUT, -12) - powf(RCUT, -6)))
 
 void init_pos(float* restrict rxyz, const float rho)
 {
@@ -79,54 +79,42 @@ static float minimum_image(float cordi, const float cell_length, const float cel
 void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict epot, float* restrict pres,
             const float* restrict temp, const float rho, const float V, const float L)
 {
-    // calcula las fuerzas LJ (12-6)
-
     // gets optimized to __builtin_memset
     for (int i = 0; i < 3 * N; i++) {
         fxyz[i] = 0.0;
     }
 
-    float rcut2 = RCUT * RCUT;
     const float L_r = 1.0 / L;
-
-    float rij2;
-    float ri[3], rj[3], rij[3];
+    float ri[3 * N];
     float _epot = 0.0;
     float pres_vir = 0.0;
 
     for (int i = 0; i < 3 * (N - 1); i += 3) {
 
-        for (int k = 0; k < 3; k++)
-            ri[k] = rxyz[i + k];
+        for (int j = i + 3; j < 3 * N; j += 3) {
+            ri[j] = minimum_image(rxyz[i + 0] - rxyz[j + 0], L, L_r);
+            ri[j + 1] = minimum_image(rxyz[i + 1] - rxyz[j + 1], L, L_r);
+            ri[j + 2] = minimum_image(rxyz[i + 2] - rxyz[j + 2], L, L_r);
+        }
 
         for (int j = i + 3; j < 3 * N; j += 3) {
+            float rij2 = ri[j] * ri[j] + ri[j + 1] * ri[j + 1] + ri[j + 2] * ri[j + 2];
 
-            for (int k = 0; k < 3; k++)
-                rj[k] = rxyz[j + k];
-
-            // distancia mínima entre r_i y r_j
-            for (int k = 0; k < 3; k++)
-                rij[k] = ri[k] - rj[k];
-
-            for (int k = 0; k < 3; k++)
-                rij[k] = minimum_image(rij[k], L, L_r);
-
-            rij2 = 0.0;
-            for (int k = 0; k < 3; k++)
-                rij2 += rij[k] * rij[k];
-
-            if (rij2 <= rcut2) {
+            if (rij2 <= RCUT2) {
                 float r2inv = 1.0 / rij2;
                 float r6inv = r2inv * r2inv * r2inv;
 
                 float fr = 24.0 * r2inv * r6inv * (2.0 * r6inv - 1.0);
 
-                for (int k = 0; k < 3; k++) {
-                    fxyz[i + k] += rij[k] * fr;
-                    fxyz[j + k] -= rij[k] * fr;
-                }
+                fxyz[i + 0] += fr * ri[j + 0];
+                fxyz[i + 1] += fr * ri[j + 1];
+                fxyz[i + 2] += fr * ri[j + 2];
 
-                _epot += 4.0 * r6inv * (r6inv - 1.0) - ECUT;
+                fxyz[j + 0] -= fr * ri[j + 0];
+                fxyz[j + 1] -= fr * ri[j + 1];
+                fxyz[j + 2] -= fr * ri[j + 2];
+
+                _epot += (4.0 * r6inv * (r6inv - 1.0) - ECUT);
                 pres_vir += fr * rij2;
             }
         }
