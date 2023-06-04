@@ -38,7 +38,6 @@
 #define RCUT2 6.25
 #endif
 
-
 #ifndef DT // paso temporal ~ 1.6 fs para el Ar
 #define DT 0.005
 #endif
@@ -53,6 +52,10 @@
 
 #ifndef TMES // cada cuantos pasos se mide
 #define TMES 10
+#endif
+
+#ifndef N_THREADS // número de hilos
+#define N_THREADS 1
 #endif
 
 #endif

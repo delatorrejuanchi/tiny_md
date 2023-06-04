@@ -4,6 +4,7 @@
 #include <math.h>
 #include <omp.h>
 #include <stdlib.h> // rand()
+#include <omp.h>
 
 #define ECUT (4.0 * (powf(RCUT, -12) - powf(RCUT, -6)))
 
@@ -77,7 +78,7 @@ static float minimum_image(float cordi, const float cell_length, const float cel
 }
 
 
-void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict epot, float* restrict pres,
+void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict private_fxyz, float* restrict epot, float* restrict pres,
             const float* restrict temp, const float rho, const float V, const float L)
 {
     // gets optimized to __builtin_memset
@@ -85,12 +86,19 @@ void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict ep
         fxyz[i] = 0.0;
     }
 
+    for (int i = 0; i < N_THREADS * 3 * N; i++) {
+        private_fxyz[i] = 0.0;
+    }
+
     const float L_r = 1.0 / L;
     float ri[3 * N];
     float _epot = 0.0;
     float pres_vir = 0.0;
 
+    #pragma omp parallel for reduction(+ : _epot, pres_vir) private(ri)
     for (int i = 0; i < 3 * (N - 1); i += 3) {
+        int thread_id = omp_get_thread_num();
+        float* thread_fxyz = private_fxyz + thread_id * 3 * N;
 
         for (int j = i + 3; j < 3 * N; j += 3) {
             ri[j] = minimum_image(rxyz[i + 0] - rxyz[j + 0], L, L_r);
@@ -107,17 +115,24 @@ void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict ep
 
                 float fr = 24.0 * r2inv * r6inv * (2.0 * r6inv - 1.0);
 
-                fxyz[i + 0] += fr * ri[j + 0];
-                fxyz[i + 1] += fr * ri[j + 1];
-                fxyz[i + 2] += fr * ri[j + 2];
+                thread_fxyz[i + 0] += fr * ri[j + 0];
+                thread_fxyz[i + 1] += fr * ri[j + 1];
+                thread_fxyz[i + 2] += fr * ri[j + 2];
 
-                fxyz[j + 0] -= fr * ri[j + 0];
-                fxyz[j + 1] -= fr * ri[j + 1];
-                fxyz[j + 2] -= fr * ri[j + 2];
+                thread_fxyz[j + 0] -= fr * ri[j + 0];
+                thread_fxyz[j + 1] -= fr * ri[j + 1];
+                thread_fxyz[j + 2] -= fr * ri[j + 2];
 
                 _epot += (4.0 * r6inv * (r6inv - 1.0) - ECUT);
                 pres_vir += fr * rij2;
             }
+        }
+    }
+
+    for (int t = 0; t < N_THREADS; t++) {
+        float* thread_fxyz = private_fxyz + t * 3 * N;
+        for (int i = 0; i < 3 * N; i++) {
+            fxyz[i] += thread_fxyz[i];
         }
     }
 
@@ -132,7 +147,7 @@ static float pbc(float cordi, const float cell_length, const float cell_length_r
 }
 
 
-void velocity_verlet(float* restrict rxyz, float* restrict vxyz, float* restrict fxyz, float* restrict epot,
+void velocity_verlet(float* restrict rxyz, float* restrict vxyz, float* restrict fxyz, float* restrict private_fxyz, float* restrict epot,
                      float* restrict ekin, float* restrict pres, float* restrict temp, const float rho,
                      const float V, const float L)
 {
@@ -151,7 +166,7 @@ void velocity_verlet(float* restrict rxyz, float* restrict vxyz, float* restrict
         rxyz[i] = pbc(rxyz[i], L, L_r);
     }
 
-    forces(rxyz, fxyz, epot, pres, temp, rho, V, L); // actualizo fuerzas
+    forces(rxyz, fxyz, private_fxyz, epot, pres, temp, rho, V, L); // actualizo fuerzas
 
     float sumv2 = 0.0;
     for (int i = 0; i < 3 * N; i++) { // actualizo velocidades
