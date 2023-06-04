@@ -8,11 +8,11 @@ import numpy as np
 import csv
 
 DEFAULT_N_VALUES = [256]
-DEFAULT_NTHREADS = 8
+DEFAULT_N_THREADS = 8
 DEFAULT_NUM_RUNS = 20
 
 
-def run_tiny_md(N: int, NTHREADS: int) -> str:
+def run_tiny_md(N: int, N_THREADS: int) -> str:
     subprocess.run(
         ["rm", ".depend"],
         stdout=subprocess.PIPE,
@@ -30,7 +30,7 @@ def run_tiny_md(N: int, NTHREADS: int) -> str:
     )
 
     result = subprocess.run(
-        ["make", f'N=-DN={N}', f'N_THREADS=-DN_THREADS={NTHREADS}'],
+        ["make", f'N=-DN={N}', f'N_THREADS=-DN_THREADS={N_THREADS}'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -137,9 +137,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n-threads",
         type=int,
-        metavar="NTHREADS",
-        default=DEFAULT_NTHREADS,
-        help=f"Number of threads to use. Default is {DEFAULT_NTHREADS}."
+        metavar="N_THREADS",
+        default=DEFAULT_N_THREADS,
+        help=f"Number of threads to use. Default is {DEFAULT_N_THREADS}."
     )
     args = parser.parse_args()
 
