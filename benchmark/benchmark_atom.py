@@ -13,6 +13,10 @@ DEFAULT_NUM_RUNS = 20
 
 
 def run_tiny_md(N: int, N_THREADS: int) -> str:
+
+    env = os.environ.copy()
+    env["OMP_PROC_BIND"] = "true"
+
     subprocess.run(
         ["rm", ".depend"],
         stdout=subprocess.PIPE,
@@ -29,7 +33,7 @@ def run_tiny_md(N: int, N_THREADS: int) -> str:
         check=True
     )
 
-    result = subprocess.run(
+    subprocess.run(
         ["make", f'N=-DN={N}', f'N_THREADS=-DN_THREADS={N_THREADS}'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -42,7 +46,8 @@ def run_tiny_md(N: int, N_THREADS: int) -> str:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        check=True
+        check=True,
+        env=env
     )
 
     return result.stdout
@@ -52,7 +57,8 @@ def benchmark(name: str, n_values: List[int], n_threads: int, num_runs: int):
     avg_performances = []
     std_devs = []
 
-    print(f"Running benchmark with {n_values} particles {num_runs} times")
+    print(
+        f"Running benchmark with {n_values} particles {num_runs} times in {n_threads} threads")
     for n in n_values:
         run_metrics = []
         for i in range(num_runs):
