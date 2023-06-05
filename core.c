@@ -20,22 +20,22 @@ void init_pos(float* restrict rxyz, const float rho)
         for (int j = 0; j < nucells; j++) {
             for (int k = 0; k < nucells; k++) {
                 rxyz[idx + 0] = i * a; // x
-                rxyz[idx + 1] = j * a; // y
-                rxyz[idx + 2] = k * a; // z
-                                       // del mismo átomo
-                rxyz[idx + 3] = (i + 0.5) * a;
-                rxyz[idx + 4] = (j + 0.5) * a;
-                rxyz[idx + 5] = k * a;
+                rxyz[N + idx + 0] = j * a; // y
+                rxyz[2 * N + idx + 0] = k * a; // z
+                                               // del mismo átomo
+                rxyz[idx + 1] = (i + 0.5) * a;
+                rxyz[N + idx + 1] = (j + 0.5) * a;
+                rxyz[2 * N + idx + 1] = k * a;
 
-                rxyz[idx + 6] = (i + 0.5) * a;
-                rxyz[idx + 7] = j * a;
-                rxyz[idx + 8] = (k + 0.5) * a;
+                rxyz[idx + 2] = (i + 0.5) * a;
+                rxyz[N + idx + 2] = j * a;
+                rxyz[2 * N + idx + 2] = (k + 0.5) * a;
 
-                rxyz[idx + 9] = i * a;
-                rxyz[idx + 10] = (j + 0.5) * a;
-                rxyz[idx + 11] = (k + 0.5) * a;
+                rxyz[idx + 3] = i * a;
+                rxyz[N + idx + 3] = (j + 0.5) * a;
+                rxyz[2 * N + idx + 3] = (k + 0.5) * a;
 
-                idx += 12;
+                idx += 4;
             }
         }
     }
@@ -47,11 +47,11 @@ void init_vel(float* restrict vxyz, float* restrict temp, float* restrict ekin)
     float sf, sumv2 = 0.0;
     float sumv[3] = { 0.0, 0.0, 0.0 };
 
-    for (int i = 0; i < 3 * N; i += 3) {
+    for (int i = 0; i < N; i++) {
         for (int j = 0; j < 3; j++) {
-            vxyz[i + j] = rand() / (float)RAND_MAX - 0.5;
-            sumv[j] += vxyz[i + j];
-            sumv2 += vxyz[i + j] * vxyz[i + j];
+            vxyz[j * N + i] = rand() / (float)RAND_MAX - 0.5;
+            sumv[j] += vxyz[j * N + i];
+            sumv2 += vxyz[j * N + i] * vxyz[j * N + i];
         }
     }
 
@@ -62,9 +62,9 @@ void init_vel(float* restrict vxyz, float* restrict temp, float* restrict ekin)
     *ekin = 0.5 * sumv2;
     sf = sqrtf(T0 / *temp);
 
-    for (int i = 0; i < 3 * N; i += 3) {
-        for (int j = 0; j < 3; j++) {
-            vxyz[i + j] = sf * (vxyz[i + j] - sumv[j]);
+    for (int i = 0; i < N; i++) { // elimina la velocidad del centro de masa
+        for (int j = 0; j < 3; j++) { // y ajusta la temperatura
+            vxyz[j * N + i] = sf * (vxyz[j * N + i] - sumv[j]);
         }
     }
 }
@@ -93,18 +93,18 @@ void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict pr
     float pres_vir = 0.0;
 
     #pragma omp parallel for reduction(+ : _epot, pres_vir) private(ri)
-    for (int i = 0; i < 3 * (N - 1); i += 3) {
+    for (int i = 0; i < N - 1; i++) {
         int thread_id = omp_get_thread_num();
         float* thread_fxyz = private_fxyz + thread_id * 3 * N;
 
-        for (int j = i + 3; j < 3 * N; j += 3) {
-            ri[j + 0] = minimum_image(rxyz[i + 0] - rxyz[j + 0], L, L_r);
-            ri[j + 1] = minimum_image(rxyz[i + 1] - rxyz[j + 1], L, L_r);
-            ri[j + 2] = minimum_image(rxyz[i + 2] - rxyz[j + 2], L, L_r);
+        for (int j = i + 1; j < N; j++) {
+            ri[j] = minimum_image(rxyz[i + 0] - rxyz[j], L, L_r);
+            ri[j + N] = minimum_image(rxyz[i + N] - rxyz[j + N], L, L_r);
+            ri[j + 2 * N] = minimum_image(rxyz[i + 2 * N] - rxyz[j + 2 * N], L, L_r);
         }
 
-        for (int j = i + 3; j < 3 * N; j += 3) {
-            float rij2 = ri[j] * ri[j] + ri[j + 1] * ri[j + 1] + ri[j + 2] * ri[j + 2];
+        for (int j = i + 1; j < N; j++) {
+            float rij2 = ri[j] * ri[j] + ri[j + N] * ri[j + N] + ri[j + 2 * N] * ri[j + 2 * N];
 
             if (rij2 <= RCUT2) {
                 float r2inv = 1.0 / rij2;
@@ -112,15 +112,15 @@ void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict pr
 
                 float fr = 24.0 * r2inv * r6inv * (2.0 * r6inv - 1.0);
 
-                thread_fxyz[i + 0] += fr * ri[j + 0];
-                thread_fxyz[i + 1] += fr * ri[j + 1];
-                thread_fxyz[i + 2] += fr * ri[j + 2];
+                thread_fxyz[i + 0] += fr * ri[j];
+                thread_fxyz[i + N] += fr * ri[j + N];
+                thread_fxyz[i + 2 * N] += fr * ri[j + 2 * N];
 
-                thread_fxyz[j + 0] -= fr * ri[j + 0];
-                thread_fxyz[j + 1] -= fr * ri[j + 1];
-                thread_fxyz[j + 2] -= fr * ri[j + 2];
+                thread_fxyz[j] -= fr * ri[j];
+                thread_fxyz[j + N] -= fr * ri[j + N];
+                thread_fxyz[j + 2 * N] -= fr * ri[j + 2 * N];
 
-                _epot += (4.0 * r6inv * (r6inv - 1.0) - ECUT);
+                _epot += 4.0 * r6inv * (r6inv - 1.0) - ECUT;
                 pres_vir += fr * rij2;
             }
         }
