@@ -1,0 +1,1 @@
+git checkout lab3-vectorization && python3 benchmark/benchmark_atom.py vectorization --n-values 256 500 864 1372 2048 --num-runs 2

@@ -1,0 +1,1 @@
+git checkout main && python3 benchmark/benchmark_atom.py baseline --n-values 256 500 864 1372 2048 --num-runs 2
