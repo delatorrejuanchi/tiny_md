@@ -44,34 +44,29 @@ void init_pos(float* restrict rxyz, const float rho)
 
 void init_vel(float* restrict vxyz, float* restrict temp, float* restrict ekin)
 {
-    float sumv2 = 0.0;
-    float sumx = 0.0, sumy = 0.0, sumz = 0.0;
+    float sf, sumv2 = 0.0;
+    float sumv[3] = { 0.0, 0.0, 0.0 };
 
     for (int i = 0; i < 3 * N; i += 3) {
-        vxyz[i + 0] = rand() / (float)RAND_MAX - 0.5;
-        vxyz[i + 1] = rand() / (float)RAND_MAX - 0.5;
-        vxyz[i + 2] = rand() / (float)RAND_MAX - 0.5;
-
-        sumx += vxyz[i + 0];
-        sumy += vxyz[i + 1];
-        sumz += vxyz[i + 2];
-
-        sumv2 += vxyz[i + 0] * vxyz[i + 0] + vxyz[i + 1] * vxyz[i + 1] + vxyz[i + 2] * vxyz[i + 2];
+        for (int j = 0; j < 3; j++) {
+            vxyz[i + j] = rand() / (float)RAND_MAX - 0.5;
+            sumv[j] += vxyz[i + j];
+            sumv2 += vxyz[i + j] * vxyz[i + j];
+        }
     }
 
-    sumx /= (float)N;
-    sumy /= (float)N;
-    sumz /= (float)N;
-
-    float sf = sqrtf(T0 / *temp);
-    for (int i = 0; i < 3 * N; i += 3) {
-        vxyz[i + 0] = sf * (vxyz[i + 0] - sumx);
-        vxyz[i + 1] = sf * (vxyz[i + 1] - sumy);
-        vxyz[i + 2] = sf * (vxyz[i + 2] - sumz);
-    }
+    for (int j = 0; j < 3; j++)
+        sumv[j] /= (float)N;
 
     *temp = sumv2 / (3.0 * N);
     *ekin = 0.5 * sumv2;
+    sf = sqrtf(T0 / *temp);
+
+    for (int i = 0; i < 3 * N; i += 3) {
+        for (int j = 0; j < 3; j++) {
+            vxyz[i + j] = sf * (vxyz[i + j] - sumv[j]);
+        }
+    }
 }
 
 
@@ -100,7 +95,7 @@ void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict pr
     #pragma omp parallel for reduction(+ : _epot, pres_vir) private(ri)
     for (int i = 0; i < 3 * (N - 1); i += 3) {
         int thread_id = omp_get_thread_num();
-        float* restrict thread_fxyz = private_fxyz + thread_id * 3 * N;
+        float* thread_fxyz = private_fxyz + thread_id * 3 * N;
 
         for (int j = i + 3; j < 3 * N; j += 3) {
             ri[j + 0] = minimum_image(rxyz[i + 0] - rxyz[j + 0], L, L_r);
@@ -158,7 +153,13 @@ void velocity_verlet(float* restrict rxyz, float* restrict vxyz, float* restrict
 
     for (int i = 0; i < 3 * N; i++) {
         vxyz[i] += fxyz[i] * DT_2;
+    }
+
+    for (int i = 0; i < 3 * N; i++) {
         rxyz[i] += vxyz[i] * DT;
+    }
+
+    for (int i = 0; i < 3 * N; i++) {
         rxyz[i] = pbc(rxyz[i], L, L_r);
     }
 
