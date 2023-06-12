@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <omp.h>
 
-float rxyz[3 * N], vxyz[3 * N], fxyz[3 * N], private_fxyz[N_THREADS * 3 * N];
+float rxyz[3 * N], vxyz[3 * N], fxyz[3 * N];
 
 int main()
 {
@@ -54,11 +54,11 @@ int main()
             rxyz[k] *= sf;
         }
         init_vel(vxyz, &Temp, &Ekin);
-        forces(rxyz, fxyz, private_fxyz, &Epot, &Pres, &Temp, Rho, cell_V, cell_L);
+        forces(rxyz, fxyz, &Epot, &Pres, &Temp, Rho, cell_V, cell_L);
 
         for (i = 1; i < TEQ; i++) { // loop de equilibracion
 
-            velocity_verlet(rxyz, vxyz, fxyz, private_fxyz, &Epot, &Ekin, &Pres, &Temp, Rho, cell_V, cell_L);
+            velocity_verlet(rxyz, vxyz, fxyz, &Epot, &Ekin, &Pres, &Temp, Rho, cell_V, cell_L);
 
             sf = sqrtf(T0 / Temp);
             for (int k = 0; k < 3 * N; k++) { // reescaleo de velocidades
@@ -70,7 +70,7 @@ int main()
         float epotm = 0.0, presm = 0.0;
         for (i = TEQ; i < TRUN; i++) { // loop de medicion
 
-            velocity_verlet(rxyz, vxyz, fxyz, private_fxyz, &Epot, &Ekin, &Pres, &Temp, Rho, cell_V, cell_L);
+            velocity_verlet(rxyz, vxyz, fxyz, &Epot, &Ekin, &Pres, &Temp, Rho, cell_V, cell_L);
 
             sf = sqrtf(T0 / Temp);
             for (int k = 0; k < 3 * N; k++) { // reescaleo de velocidades
