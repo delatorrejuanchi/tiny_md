@@ -89,7 +89,7 @@ void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict ep
 
     #pragma omp parallel reduction(+ : _epot, pres_vir, fxyz[:3 * N])
     {
-        float ri[3 * N];
+        float ri[4 * N];
 
         #pragma omp for nowait
         for (int i = 0; i < N - 1; i++) {
@@ -97,13 +97,12 @@ void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict ep
                 ri[j] = minimum_image(rxyz[i + 0] - rxyz[j], L, L_r);
                 ri[j + N] = minimum_image(rxyz[i + N] - rxyz[j + N], L, L_r);
                 ri[j + 2 * N] = minimum_image(rxyz[i + 2 * N] - rxyz[j + 2 * N], L, L_r);
+                ri[j + 3 * N] = ri[j] * ri[j] + ri[j + N] * ri[j + N] + ri[j + 2 * N] * ri[j + 2 * N];
             }
 
             for (int j = i + 1; j < N; j++) {
-                float rij2 = ri[j] * ri[j] + ri[j + N] * ri[j + N] + ri[j + 2 * N] * ri[j + 2 * N];
-
-                if (rij2 <= RCUT2) {
-                    float r2inv = 1.0 / rij2;
+                if (ri[j + 3 * N] <= RCUT2) {
+                    float r2inv = 1.0 / ri[j + 3 * N];
                     float r6inv = r2inv * r2inv * r2inv;
 
                     float fr = 24.0 * r2inv * r6inv * (2.0 * r6inv - 1.0);
@@ -117,7 +116,7 @@ void forces(const float* restrict rxyz, float* restrict fxyz, float* restrict ep
                     fxyz[j + 2 * N] -= fr * ri[j + 2 * N];
 
                     _epot += 4.0 * r6inv * (r6inv - 1.0) - ECUT;
-                    pres_vir += fr * rij2;
+                    pres_vir += fr * ri[j + 3 * N];
                 }
             }
         }
